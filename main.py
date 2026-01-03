@@ -1,5 +1,5 @@
-# quick_poster_bot.py
-# ORIGINAL WORKING VERSION - Webhook deployment ready
+# quick_poster_bot.py - MODIFIED VERSION WITH HARDCODED TOKEN
+# FOR RAILWAY DEPLOYMENT
 
 import os, re, requests, logging, json, datetime, asyncio
 from typing import Optional, Tuple, List
@@ -12,9 +12,8 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 # ================== CONFIGURATION ==================
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
-if not TELEGRAM_TOKEN:
-    raise RuntimeError("TELEGRAM_TOKEN environment variable not set")
+# HARDCODED TOKEN - WARNING: NOT RECOMMENDED FOR PRODUCTION
+TELEGRAM_TOKEN = "8185824843:AAEnj7c0I1gbTgnQRLOar3wD-3_o6KdTLY4"
 
 JUP_API_KEY = os.getenv("JUP_API_KEY", "").strip() or ""
 TARGET_CHANNELS = ["@CODYWHALESCALLS"]
@@ -198,7 +197,7 @@ def detect_network(ca: str) -> str:
     
     return "unknown"
 
-# ================== REST OF THE CODE (unchanged) ==================
+# ================== REST OF THE CODE ==================
 
 def _post_json(url: str, payload: dict, timeout: int = 5) -> dict:
     r = SESSION.post(url, json=payload, timeout=timeout, headers={"Content-Type": "application/json"})
@@ -767,23 +766,30 @@ def main():
     
     logger.info("Quick Poster Bot starting in webhook mode...")
 
-    # Render gives us the port in $PORT
+    # Get port from environment (Railway provides this)
     port = int(os.getenv("PORT", "8000"))
-
-    # Public base URL of your Render service, e.g. "https://quick-poster-bot.onrender.com"
-    webhook_base_url = os.getenv("WEBHOOK_URL", "").rstrip("/")
-    if not webhook_base_url:
-        raise RuntimeError("WEBHOOK_URL environment variable not set")
-
-    # Path part for Telegram webhook (can be anything, using token is common)
-    url_path = TELEGRAM_TOKEN
-
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=port,
-        url_path=url_path,
-        webhook_url=f"{webhook_base_url}/{url_path}",
-    )
+    
+    # For Railway, we need to check if webhook is set in environment or use polling
+    webhook_url = os.getenv("WEBHOOK_URL", "").strip()
+    
+    if webhook_url:
+        # Webhook mode (for Railway deployment)
+        logger.info(f"Using webhook mode with URL: {webhook_url}")
+        
+        # Create webhook URL with token as path
+        webhook_path = TELEGRAM_TOKEN
+        full_webhook_url = f"{webhook_url.rstrip('/')}/{webhook_path}"
+        
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=port,
+            url_path=webhook_path,
+            webhook_url=full_webhook_url,
+        )
+    else:
+        # Polling mode (for local testing)
+        logger.info("No WEBHOOK_URL found, using polling mode")
+        app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 
 if __name__ == "__main__":
